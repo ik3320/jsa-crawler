@@ -4,7 +4,7 @@ name: JSA ELO Auto Crawler
 on:
   schedule:
     # 매 시간 0분에 실행 (한국 시간 기준 매 정시)
-    - cron: '0 * * * *'
+    - cron: '0 */6 * * *'
   workflow_dispatch: # 우리가 원할 때 수동으로 버튼 눌러서 실행 가능
 
 jobs:
