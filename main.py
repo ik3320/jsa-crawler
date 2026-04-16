@@ -11,20 +11,17 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 # 본인의 웹앱 URL로 교체하세요
-GAS_URL = "https://script.google.com/macros/s/AKfycbyRFG-aEn67ooqn84calnJlttxhFRGu1J5TtmT2Rka5fVAiONJFJHkoMHk4offjTTK5/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbzY8mZ6oactjlCzvmA4BHvF45_xl5-pOl9M3YUaIflwjdeXinsH54WPuci8_p7oaI3m/exec"
 
 def get_member_list():
     """시트에서 명단을 가져오고, 주소가 없는 멤버는 여기서 1차로 걸러냅니다."""
     try:
         response = requests.get(f"{GAS_URL}?action=getMemberList")
-        # 응답이 정상인지 확인 (200 OK)
         if response.status_code != 200:
             print(f"GAS 연결 실패: 상태코드 {response.status_code}")
             return []
             
         raw_data = response.json()
-        
-        # [로직 추가] ELO 주소가 제대로 입력된 멤버만 필터링
         valid_members = [
             m for m in raw_data 
             if m.get('eloUrl') and "http" in m['eloUrl']
@@ -35,11 +32,10 @@ def get_member_list():
         
     except Exception as e:
         print(f"명단 가져오기 실패: {e}")
-        print("팁: GAS 배포 후 '새 배포'를 했는지, 액세스 권한이 '모든 사용자'인지 확인하세요.")
         return []
 
 def scrape_elo_board(driver, url, sId):
-    """ELO 보드 크롤링 (기존 로직 유지)"""
+    """ELO 보드 크롤링 및 승/패 상세 계산"""
     try:
         driver.get(url)
         wait = WebDriverWait(driver, 10)
@@ -64,10 +60,19 @@ def scrape_elo_board(driver, url, sId):
                 if "0, 204, 255" in bg_color: # 승리 색상
                     monthly_wins += 1
 
+        # [추가] 패배 수 및 상세 텍스트 생성
+        monthly_losses = monthly_total - monthly_wins
         win_rate = f"{(monthly_wins / monthly_total * 100):.1f}%" if monthly_total > 0 else "0.0%"
-        print(f"[성공] {sId}: {monthly_total}전 {monthly_wins}승 ({win_rate})")
+        elo_detail = f"{monthly_wins}승 {monthly_losses}패"
+
+        print(f"[성공] {sId}: {monthly_total}전 {elo_detail} ({win_rate})")
         
-        return {"sId": sId, "eloCount": monthly_total, "eloRate": win_rate}
+        return {
+            "sId": sId, 
+            "eloCount": monthly_total, 
+            "eloRate": win_rate,
+            "eloDetail": elo_detail  # [추가] Z열용 데이터
+        }
     except Exception as e:
         print(f"[건너뜀] {sId}: 데이터 로딩 실패 또는 테이블 없음")
         return None
@@ -82,7 +87,6 @@ def main():
     options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
-    # 아래 옵션은 차단 방지를 위해 추가
     options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
     
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
@@ -92,11 +96,12 @@ def main():
         res = scrape_elo_board(driver, member['eloUrl'], member['sId'])
         if res:
             final_results.append(res)
-        time.sleep(1.5) # 과부하 방지
+        time.sleep(1.5)
 
     driver.quit()
 
     if final_results:
+        # 전송 데이터 구조에 eloDetail이 포함됨
         payload = {"action": "updateBulkElo", "payload": final_results}
         res = requests.post(GAS_URL, data=json.dumps(payload))
         print(f"\n시트 전송 결과: {res.text}")
