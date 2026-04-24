@@ -11,7 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 # 본인의 웹앱 URL로 교체하세요
-GAS_URL = "https://script.google.com/macros/s/AKfycbzTf3uUs03m72lCpkobt2R2wwzfdQ6pHJoaqeRdI_0BVPEnZUBChCOdXfntZAkqq7v7/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbziyGOGQUDN_X8uv5vz6ncY4UDs0LPG3rND-aKPKJTaGMX2MknxtqOsja_TKapTZQlv/exec"
 
 def get_member_list():
     """시트에서 명단을 가져오고, 주소가 없는 멤버는 여기서 1차로 걸러냅니다."""
